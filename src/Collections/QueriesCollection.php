@@ -60,10 +60,27 @@ class QueriesCollection implements Collection
     {
         $this->connection->enableQueryLog();
 
-        $this->connection->listen(function (QueryExecuted $event) {
-            $this->logQuery($event->connectionName, $event->sql, $event->bindings, $event->time);
+        $listener = $this->connection->listen(function (QueryExecuted $event) use (&$listener) {
+
+            if (!$this->connection->logging()){
+                $this->logQuery($event->connectionName, $event->sql, $event->bindings, $event->time);
+            }else {
+                // Disable the query log temporarily
+                $this->connection->disableQueryLog();
+                
+                $result = DB::select($event->sql, $event->bindings);
+                $result = json_decode(json_encode($result), true);
+                $len = count($this->queries);
+
+                $this->queries[$len - 1]['result'] = $result;
+
+                // Re-enable the query log after executing the query
+                $this->connection->enableQueryLog();
+            }
+
         });
     }
+
 
     /**
      * Log DB query.
